@@ -28,15 +28,22 @@ loadSprite("bg", "windrise-background.png")
 const WALK_SPEED = 300
 const SPRINT_SPEED = 600
 const JUMP_FORCE = 650
+const WORLD_WIDTH = width() * 20   // total playable width
 setGravity(2200)
 
 // --- BACKGROUND ---
-const bg = add([
-    sprite("bg", { width: width(), height: height() }),
-    pos(0, 0),
-    fixed(),
-    z(-10),
-])
+// Tile the background across the whole world so it never ends.
+// Each tile is the height of the screen and keeps its aspect ratio.
+const BG_TILE_HEIGHT = height()
+const BG_TILE_WIDTH = BG_TILE_HEIGHT * (1920 / 720) // matches image aspect ratio
+
+for (let x = 0; x < WORLD_WIDTH; x += BG_TILE_WIDTH) {
+    add([
+        sprite("bg", { width: BG_TILE_WIDTH, height: BG_TILE_HEIGHT }),
+        pos(x, 0),
+        z(-10),
+    ])
+}
 
 // --- PLAYER ---
 const player = add([
@@ -108,16 +115,14 @@ onKeyPress("space", () => {
 
 // --- WORLD ---
 add([
-    rect(width() * 20, 48),
+    rect(WORLD_WIDTH, 48),
     pos(0, height() - 48),
     area(),
     body({ isStatic: true }),
     color(100, 100, 100),
 ])
 
-// --- CAMERA + BACKGROUND SCROLL ---
+// --- CAMERA ---
 onUpdate(() => {
     camPos(player.pos)
-
-    bg.pos.x = -((player.pos.x * 0.3) % bg.width)
 })
