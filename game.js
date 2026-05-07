@@ -18,37 +18,23 @@ loadSprite("monster_jump", "Pink_Monster_Jump_8.png", {
     sliceX: 8, anims: { "jump": { from: 0, to: 7 } }
 })
 
-// --- BACKGROUND LAYERS (parallax) ---
-// Replace these URLs with your own images later. For now, use solid color layers
-// to give a sense of depth. Drop in a sky/mountain/foreground PNG when you have one.
-loadSprite("bg_sky", "background_sky.png")        // far layer (slow)
-loadSprite("bg_mid", "background_mid.png")        // mid layer
-loadSprite("bg_near", "background_near.png")      // near layer (fastest)
+// --- LOAD BACKGROUND ---
+loadSprite("bg", "windrise-background.png")
 
 // --- CONSTANTS ---
 const WALK_SPEED = 300
 const SPRINT_SPEED = 600
-const JUMP_FORCE = 650          // reduced so it matches the 8-frame jump anim
-setGravity(2200)                // slightly lower gravity, smoother arc
+const JUMP_FORCE = 650
+setGravity(2200)
 
-// --- PARALLAX BACKGROUND ---
-// Each layer scrolls based on the camera position * a factor (< 1 = farther away).
-const bgLayers = [
-    { sprite: "bg_sky",  factor: 0.1 },
-    { sprite: "bg_mid",  factor: 0.4 },
-    { sprite: "bg_near", factor: 0.7 },
-]
-
-const bgObjects = bgLayers.map(layer =>
-    add([
-        sprite(layer.sprite, { width: width(), height: height() }),
-        pos(0, 0),
-        fixed(),       // ignore camera (we'll move them manually)
-        z(-10),        // behind everything
-        "bg",
-        { factor: layer.factor },
-    ])
-)
+// --- BACKGROUND ---
+const bg = add([
+    sprite("bg"),
+    pos(0, 0),
+    fixed(),
+    z(-10),
+    scale(1), // bump up to 2 if it looks too small vertically
+])
 
 // --- PLAYER ---
 const player = add([
@@ -134,14 +120,12 @@ add([
     color(100, 100, 100),
 ])
 
-// --- CAMERA + PARALLAX UPDATE ---
+// --- CAMERA + BACKGROUND SCROLL ---
 onUpdate(() => {
     camPos(player.pos)
 
-    // Move each background layer opposite to the camera, scaled by its factor.
-    // factor 0 = stuck to camera (no parallax), factor 1 = moves with world.
-    bgObjects.forEach(bg => {
-        bg.pos.x = player.pos.x - width() / 2 - (player.pos.x * bg.factor) % width()
-        bg.pos.y = 0
-    })
+    // Fake parallax: background drifts slowly opposite the camera
+    // factor 0 = locked to camera, 1 = locked to world. 0.3 feels nice.
+    bg.pos.x = -((player.pos.x * 0.3) % bg.width)
+    bg.pos.y = height() - bg.height
 })
