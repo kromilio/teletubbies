@@ -2,6 +2,9 @@ import kaboom from "https://unpkg.com/kaboom@3000.0.1/dist/kaboom.mjs"
 
 kaboom({
     background: [30, 30, 30],
+    width: 1280,
+    height: 480,
+    letterbox: true,
 })
 
 // --- LOAD SPRITES ---
@@ -29,11 +32,10 @@ setGravity(2200)
 
 // --- BACKGROUND ---
 const bg = add([
-    sprite("bg"),
+    sprite("bg", { width: width(), height: height() }),
     pos(0, 0),
     fixed(),
     z(-10),
-    scale(1), // bump up to 2 if it looks too small vertically
 ])
 
 // --- PLAYER ---
@@ -44,17 +46,15 @@ const player = add([
     body(),
     scale(2),
     {
-        facingLeft: false,   // remembers facing direction
+        facingLeft: false,
     },
 ])
 
 // --- CORE LOGIC ---
 onUpdate(() => {
-    // 1. Determine Speed
     const sprinting = isKeyDown("shift")
     const currentSpeed = sprinting ? SPRINT_SPEED : WALK_SPEED
 
-    // 2. Horizontal Movement (A and D)
     const leftDown = isKeyDown("a")
     const rightDown = isKeyDown("d")
 
@@ -65,12 +65,10 @@ onUpdate(() => {
         player.move(currentSpeed, 0)
         player.facingLeft = false
     }
-    // Apply facing every frame so it sticks even when idle / jumping
     player.flipX = player.facingLeft
 
-    // 3. Animation State Machine
+    // Animation State Machine
     if (!player.isGrounded()) {
-        // JUMPING ANIMATION
         if (player.curAnim() !== "jump") {
             player.use(sprite("monster_jump"))
             player.play("jump")
@@ -79,14 +77,12 @@ onUpdate(() => {
         const moving = leftDown || rightDown
         if (moving) {
             if (sprinting) {
-                // RUN
                 if (player.curAnim() !== "run") {
                     player.use(sprite("monster_run"))
                     player.play("run")
                 }
                 player.animSpeed = 1.2
             } else {
-                // WALK
                 if (player.curAnim() !== "walk") {
                     player.use(sprite("monster_walk"))
                     player.play("walk")
@@ -94,7 +90,6 @@ onUpdate(() => {
                 player.animSpeed = 1
             }
         } else {
-            // IDLE
             if (player.curAnim() !== "idle") {
                 player.use(sprite("monster_idle"))
                 player.play("idle")
@@ -124,8 +119,5 @@ add([
 onUpdate(() => {
     camPos(player.pos)
 
-    // Fake parallax: background drifts slowly opposite the camera
-    // factor 0 = locked to camera, 1 = locked to world. 0.3 feels nice.
     bg.pos.x = -((player.pos.x * 0.3) % bg.width)
-    bg.pos.y = height() - bg.height
 })
