@@ -14,7 +14,7 @@ loadSprite("monster_run", "Pink_Monster_Run_6.png", { sliceX: 6, anims: { "run":
 loadSprite("monster_jump", "Pink_Monster_Jump_8.png", { sliceX: 8, anims: { "jump": { from: 0, to: 7 } } })
 
 // --- LOAD DUST ---
-// If the screen still turns black, change sliceY to 2 or 3!
+// If you see a black screen, change sliceY to match the number of rows in your PNG
 loadSprite("run_dust", "Walk_Run_Push_Dust_6.png", { 
     sliceX: 6, 
     sliceY: 1, 
@@ -22,6 +22,7 @@ loadSprite("run_dust", "Walk_Run_Push_Dust_6.png", {
 })
 loadSprite("jump_dust", "Double_Jump_Dust_5.png", { 
     sliceX: 5, 
+    sliceY: 1,
     anims: { "poof": { from: 0, to: 4 } } 
 })
 
@@ -32,14 +33,17 @@ const SPRINT_SPEED = 600
 const JUMP_FORCE = 750
 setGravity(2200)
 
-// --- DUST SPAWNER ---
-function addDust(type, position, flipped) {
+// --- DUST SPAWNER (Centered under feet) ---
+function addDust(type, p, flipped) {
     add([
         sprite(type, { anim: "poof", flipX: flipped }),
-        pos(position),
-        anchor("bot"),
+        // "pos(p)" spawns at the player's top-left. 
+        // We add height to move it to the feet and half-width to center it.
+        pos(p.x, p.y + 18), 
+        anchor("center"),
         scale(2),
         lifespan(0.2),
+        z(-1), // Puts dust slightly behind the player
     ])
 }
 
@@ -61,7 +65,7 @@ const player = add([
     scale(2),
     { 
         canDoubleJump: false,
-        lastFlip: false // Store the direction here
+        facing: "right" // Persistent direction variable
     }
 ])
 
@@ -72,28 +76,26 @@ onUpdate(() => {
     const left = isKeyDown("a")
     const right = isKeyDown("d")
 
-    // DIRECTION LOGIC (The Twitch/Flip Fix)
+    // 1. DIRECTION & MOVEMENT
     if (left && !right) {
         player.move(-currentSpeed, 0)
-        player.lastFlip = true
+        player.facing = "left"
     } else if (right && !left) {
         player.move(currentSpeed, 0)
-        player.lastFlip = false
+        player.facing = "right"
     }
     
-    // Apply the saved flip state every frame
-    player.flipX = player.lastFlip
+    // FORCE FLIP BASED ON DIRECTION (Fixes Idle Twitch)
+    player.flipX = (player.facing === "left")
 
-    // SPRINT DUST LOGIC
+    // 2. SPRINT DUST (Centered under feet)
     if (player.isGrounded() && (left || right) && sprinting) {
         if (frameCount() % 10 === 0) {
-            // Spawn dust behind the monster
-            const dustPos = player.pos.add(player.flipX ? 20 : -20, 20)
-            addDust("run_dust", dustPos, player.flipX)
+            addDust("run_dust", player.pos, player.flipX)
         }
     }
 
-    // ANIMATION STATE MACHINE
+    // 3. ANIMATION STATE MACHINE
     if (!player.isGrounded()) {
         if (player.curAnim() !== "jump") {
             player.use(sprite("monster_jump"))
@@ -121,11 +123,11 @@ onUpdate(() => {
 onKeyPress("space", () => {
     if (player.isGrounded()) {
         player.jump(JUMP_FORCE)
-        addDust("jump_dust", player.pos.add(0, 20), player.flipX)
+        addDust("jump_dust", player.pos, player.flipX)
     } else if (player.canDoubleJump) {
         player.jump(JUMP_FORCE * 0.8)
         player.canDoubleJump = false
-        addDust("jump_dust", player.pos.add(0, 20), player.flipX)
+        addDust("jump_dust", player.pos, player.flipX)
     }
 })
 
