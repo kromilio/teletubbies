@@ -14,7 +14,7 @@ loadSprite("monster_run", "Pink_Monster_Run_6.png", { sliceX: 6, anims: { "run":
 loadSprite("monster_jump", "Pink_Monster_Jump_8.png", { sliceX: 8, anims: { "jump": { from: 0, to: 7 } } })
 
 // --- LOAD DUST ---
-// If you see a black screen, change sliceY to match the number of rows in your PNG
+// sliceY is 1 because your file only has one row!
 loadSprite("run_dust", "Walk_Run_Push_Dust_6.png", { 
     sliceX: 6, 
     sliceY: 1, 
@@ -33,17 +33,15 @@ const SPRINT_SPEED = 600
 const JUMP_FORCE = 750
 setGravity(2200)
 
-// --- DUST SPAWNER (Centered under feet) ---
-function addDust(type, p, flipped) {
+// --- DUST SPAWNER ---
+function addDust(type, position, flipped) {
     add([
         sprite(type, { anim: "poof", flipX: flipped }),
-        // "pos(p)" spawns at the player's top-left. 
-        // We add height to move it to the feet and half-width to center it.
-        pos(p.x, p.y + 18), 
+        pos(position.x, position.y + 16), // Adjusted to be right under feet
         anchor("center"),
         scale(2),
         lifespan(0.2),
-        z(-1), // Puts dust slightly behind the player
+        z(-1), 
     ])
 }
 
@@ -62,10 +60,11 @@ const player = add([
     pos(200, 300),
     area(),
     body(),
+    anchor("center"), // This is key for flipping correctly
     scale(2),
     { 
         canDoubleJump: false,
-        facing: "right" // Persistent direction variable
+        facingLeft: false // This saves the direction even when idle
     }
 ])
 
@@ -79,16 +78,16 @@ onUpdate(() => {
     // 1. DIRECTION & MOVEMENT
     if (left && !right) {
         player.move(-currentSpeed, 0)
-        player.facing = "left"
+        player.facingLeft = true
     } else if (right && !left) {
         player.move(currentSpeed, 0)
-        player.facing = "right"
+        player.facingLeft = false
     }
     
-    // FORCE FLIP BASED ON DIRECTION (Fixes Idle Twitch)
-    player.flipX = (player.facing === "left")
+    // Always apply the flip based on the last direction moved
+    player.flipX = player.facingLeft
 
-    // 2. SPRINT DUST (Centered under feet)
+    // 2. SPRINT DUST
     if (player.isGrounded() && (left || right) && sprinting) {
         if (frameCount() % 10 === 0) {
             addDust("run_dust", player.pos, player.flipX)
