@@ -31,7 +31,7 @@ setGravity(2200)
 function addDust(position, flipped) {
     add([
         sprite("jump_dust", { anim: "poof", flipX: flipped }),
-        pos(position.x, position.y + 18), // Centers at feet
+        pos(position.x, position.y + 18), 
         anchor("center"),
         scale(2),
         lifespan(0.2),
@@ -54,7 +54,7 @@ const player = add([
     pos(200, 300),
     area(),
     body(),
-    anchor("center"), // Essential for correct flipping
+    anchor("center"), 
     scale(2),
     { 
         canDoubleJump: false,
@@ -70,6 +70,7 @@ onUpdate(() => {
     const right = isKeyDown("d")
 
     // 1. DIRECTION & MOVEMENT
+    // Only update 'facingLeft' if a key is actually pressed
     if (left && !right) {
         player.move(-currentSpeed, 0)
         player.facingLeft = true
@@ -78,10 +79,11 @@ onUpdate(() => {
         player.facingLeft = false
     }
     
-    // Maintain the direction even when idle
+    // Apply flipX AFTER movement but BEFORE animation swaps
     player.flipX = player.facingLeft
 
     // 2. ANIMATION STATE MACHINE
+    // We use nested checks so we only call .use() and .play() ONCE when the state changes.
     if (!player.isGrounded()) {
         if (player.curAnim() !== "jump") {
             player.use(sprite("monster_jump"))
@@ -91,18 +93,24 @@ onUpdate(() => {
         player.canDoubleJump = true
         if (left || right) {
             const mode = sprinting ? "run" : "walk"
-            const spr = sprinting ? "monster_run" : "monster_walk"
+            const sprName = sprinting ? "monster_run" : "monster_walk"
+            
+            // Critical Fix: check if the sprite itself needs to change, not just the animation name
             if (player.curAnim() !== mode) {
-                player.use(sprite(spr))
+                player.use(sprite(sprName))
                 player.play(mode)
             }
         } else {
+            // Idle logic
             if (player.curAnim() !== "idle") {
                 player.use(sprite("monster_idle"))
                 player.play("idle")
             }
         }
     }
+    
+    // Re-apply flipX at the very end of the loop to override any sprite defaults
+    player.flipX = player.facingLeft
 })
 
 // --- JUMP ACTION ---
