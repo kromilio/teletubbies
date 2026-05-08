@@ -13,13 +13,7 @@ loadSprite("monster_walk", "Pink_Monster_Walk_6.png", { sliceX: 6, anims: { "wal
 loadSprite("monster_run", "Pink_Monster_Run_6.png", { sliceX: 6, anims: { "run": { from: 0, to: 5, loop: true } } })
 loadSprite("monster_jump", "Pink_Monster_Jump_8.png", { sliceX: 8, anims: { "jump": { from: 0, to: 7 } } })
 
-// --- LOAD DUST ---
-// sliceY is 1 because your file only has one row!
-loadSprite("run_dust", "Walk_Run_Push_Dust_6.png", { 
-    sliceX: 6, 
-    sliceY: 1, 
-    anims: { "poof": { from: 0, to: 5 } } 
-})
+// --- LOAD JUMP DUST ---
 loadSprite("jump_dust", "Double_Jump_Dust_5.png", { 
     sliceX: 5, 
     sliceY: 1,
@@ -34,10 +28,10 @@ const JUMP_FORCE = 750
 setGravity(2200)
 
 // --- DUST SPAWNER ---
-function addDust(type, position, flipped) {
+function addDust(position, flipped) {
     add([
-        sprite(type, { anim: "poof", flipX: flipped }),
-        pos(position.x, position.y + 16), // Adjusted to be right under feet
+        sprite("jump_dust", { anim: "poof", flipX: flipped }),
+        pos(position.x, position.y + 18), // Centers at feet
         anchor("center"),
         scale(2),
         lifespan(0.2),
@@ -60,11 +54,11 @@ const player = add([
     pos(200, 300),
     area(),
     body(),
-    anchor("center"), // This is key for flipping correctly
+    anchor("center"), // Essential for correct flipping
     scale(2),
     { 
         canDoubleJump: false,
-        facingLeft: false // This saves the direction even when idle
+        facingLeft: false 
     }
 ])
 
@@ -84,17 +78,10 @@ onUpdate(() => {
         player.facingLeft = false
     }
     
-    // Always apply the flip based on the last direction moved
+    // Maintain the direction even when idle
     player.flipX = player.facingLeft
 
-    // 2. SPRINT DUST
-    if (player.isGrounded() && (left || right) && sprinting) {
-        if (frameCount() % 10 === 0) {
-            addDust("run_dust", player.pos, player.flipX)
-        }
-    }
-
-    // 3. ANIMATION STATE MACHINE
+    // 2. ANIMATION STATE MACHINE
     if (!player.isGrounded()) {
         if (player.curAnim() !== "jump") {
             player.use(sprite("monster_jump"))
@@ -122,11 +109,11 @@ onUpdate(() => {
 onKeyPress("space", () => {
     if (player.isGrounded()) {
         player.jump(JUMP_FORCE)
-        addDust("jump_dust", player.pos, player.flipX)
+        addDust(player.pos, player.flipX)
     } else if (player.canDoubleJump) {
         player.jump(JUMP_FORCE * 0.8)
         player.canDoubleJump = false
-        addDust("jump_dust", player.pos, player.flipX)
+        addDust(player.pos, player.flipX)
     }
 })
 
