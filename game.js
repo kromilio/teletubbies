@@ -7,41 +7,59 @@ kaboom({
     letterbox: true,
 })
 
-// --- LOAD SPRITES ---
+// --- LOAD PLAYER ---
 loadSprite("monster_idle", "Pink_Monster_Idle_4.png", { sliceX: 4, anims: { "idle": { from: 0, to: 3, loop: true } } })
 loadSprite("monster_walk", "Pink_Monster_Walk_6.png", { sliceX: 6, anims: { "walk": { from: 0, to: 5, loop: true } } })
 loadSprite("monster_run", "Pink_Monster_Run_6.png", { sliceX: 6, anims: { "run": { from: 0, to: 5, loop: true } } })
 loadSprite("monster_jump", "Pink_Monster_Jump_8.png", { sliceX: 8, anims: { "jump": { from: 0, to: 7 } } })
 
-// Only loads climb if you actually have the file. 
-// If it still goes black, comment out the next line with //
-loadSprite("monster_climb", "Pink_Monster_Climb_4.png", { sliceX: 4, anims: { "climb": { from: 0, to: 3, loop: true } } })
+// --- LOAD DUST (Using your specific filenames) ---
+loadSprite("run_dust", "Walk_Run_Push_Dust_6.png", { 
+    sliceX: 6, 
+    anims: { "poof": { from: 0, to: 5 } } 
+})
+loadSprite("jump_dust", "Double_Jump_Dust_5.png", { 
+    sliceX: 5, 
+    anims: { "poof": { from: 0, to: 4 } } 
+})
 
 loadSprite("bg", "windrise-background.png")
 
 const WALK_SPEED = 300
 const SPRINT_SPEED = 600
 const JUMP_FORCE = 750
-const CLIMB_SPEED = 200
 setGravity(2200)
 
-// --- LEVEL DESIGN ---
-const level = addLevel([
-    "                                                     ",
-    "          ====                                       ",
-    "                                      ====           ",
-    "    ====                ====                         ",
-    "             |                                       ",
-    "             |          ====                ====     ",
-    "             |                                       ",
-    "=====================================================",
-], {
-    tileWidth: 64,
-    tileHeight: 64,
-    tiles: {
-        "=": () => [rect(64, 64), area(), body({ isStatic: true }), color(120, 120, 120), "platform"],
-        "|": () => [rect(20, 64), area(), body({ isStatic: true }), color(80, 50, 20), "climbable"],
-    }
+// --- DUST SPAWNER ---
+function addDust(type, position) {
+    add([
+        sprite(type, { anim: "poof" }),
+        pos(position),
+        anchor("bot"),
+        scale(2),
+        lifespan(0.2), // Dust disappears quickly
+    ])
+}
+
+// --- WORLD & PARKOUR ---
+const floor = add([
+    rect(width() * 20, 48),
+    pos(0, height() - 48),
+    area(),
+    body({ isStatic: true }),
+    color(150, 150, 150),
+])
+
+// Add a few test platforms for Parkour
+const platformPositions = [600, 900, 1200, 1500]
+platformPositions.forEach((xPos, index) => {
+    add([
+        rect(150, 20),
+        pos(xPos, height() - 150 - (index * 40)), // Each platform gets slightly higher
+        area(),
+        body({ isStatic: true }),
+        color(100, 100, 100),
+    ])
 })
 
 // --- PLAYER ---
@@ -51,69 +69,49 @@ const player = add([
     area(),
     body(),
     scale(2),
-    {
-        canDoubleJump: false,
-        isClimbing: false,
-    },
+    { canDoubleJump: false }
 ])
 
-// --- PARTICLES ---
-function spawnDust(p, pColor = rgb(200, 200, 200)) {
-    add([
-        circle(rand(2, 5)),
-        pos(p.x + (player.flipX ? 10 : -10), p.y + 18),
-        color(pColor),
-        move(UP, rand(20, 40)),
-        opacity(1),
-        lifespan(0.2),
-    ])
-}
-
-// --- CORE LOGIC ---
+// --- CORE LOOP ---
 onUpdate(() => {
     const sprinting = isKeyDown("shift")
     const currentSpeed = sprinting ? SPRINT_SPEED : WALK_SPEED
-    const leftDown = isKeyDown("a")
-    const rightDown = isKeyDown("d")
+    const left = isKeyDown("a")
+    const right = isKeyDown("d")
 
-    // TWITCH FIX: Only update flipX when moving
-    if (leftDown && !rightDown) {
+    // TWITCH FIX
+    if (left && !right) {
         player.move(-currentSpeed, 0)
         player.flipX = true
-    } else if (rightDown && !leftDown) {
+    } else if (right && !left) {
         player.move(currentSpeed, 0)
         player.flipX = false
     }
 
-    // Climbing check
-    const isTouchingWall = player.isColliding("climbable")
-    if (isTouchingWall && isKeyDown("w")) {
-        player.isClimbing = true
-        player.move(0, -CLIMB_SPEED)
-        if (player.curAnim() !== "climb") {
-            player.use(sprite("monster_climb"))
-            player.play("climb")
+    // RUN DUST SPAWN
+    if (player.isGrounded() && (left || right) && sprinting) {
+        if (frameCount() % 12 === 0) {
+            // Offset dust slightly behind the player
+            const xOff = player.flipX ? 20 : -20
+            addDust("run_dust", player.pos.add(xOff, 20))
         }
-    } else {
-        player.isClimbing = false
     }
 
-    // Animation Logic
-    if (!player.isGrounded() && !player.isClimbing) {
+    // ANIMATION STATE MACHINE
+    if (!player.isGrounded()) {
         if (player.curAnim() !== "jump") {
             player.use(sprite("monster_jump"))
             player.play("jump")
         }
-    } else if (player.isGrounded()) {
-        player.canDoubleJump = true 
-        if (leftDown || rightDown) {
-            const anim = sprinting ? "run" : "walk"
+    } else {
+        player.canDoubleJump = true
+        if (left || right) {
+            const mode = sprinting ? "run" : "walk"
             const spr = sprinting ? "monster_run" : "monster_walk"
-            if (player.curAnim() !== anim) {
+            if (player.curAnim() !== mode) {
                 player.use(sprite(spr))
-                player.play(anim)
+                player.play(mode)
             }
-            if (sprinting && frameCount() % 8 === 0) spawnDust(player.pos)
         } else {
             if (player.curAnim() !== "idle") {
                 player.use(sprite("monster_idle"))
@@ -123,15 +121,15 @@ onUpdate(() => {
     }
 })
 
+// --- JUMP ACTION ---
 onKeyPress("space", () => {
     if (player.isGrounded()) {
         player.jump(JUMP_FORCE)
-        spawnDust(player.pos)
+        addDust("jump_dust", player.pos.add(0, 20))
     } else if (player.canDoubleJump) {
         player.jump(JUMP_FORCE * 0.8)
         player.canDoubleJump = false
-        // Double jump "Cloud"
-        for(let i=0; i<6; i++) spawnDust(player.pos, rgb(150, 200, 255))
+        addDust("jump_dust", player.pos.add(0, 20))
     }
 })
 
