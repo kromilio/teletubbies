@@ -13,9 +13,11 @@ loadSprite("monster_walk", "Pink_Monster_Walk_6.png", { sliceX: 6, anims: { "wal
 loadSprite("monster_run", "Pink_Monster_Run_6.png", { sliceX: 6, anims: { "run": { from: 0, to: 5, loop: true } } })
 loadSprite("monster_jump", "Pink_Monster_Jump_8.png", { sliceX: 8, anims: { "jump": { from: 0, to: 7 } } })
 
-// --- LOAD DUST (Using your specific filenames) ---
+// --- LOAD DUST ---
+// If the screen still turns black, change sliceY to 2 or 3!
 loadSprite("run_dust", "Walk_Run_Push_Dust_6.png", { 
     sliceX: 6, 
+    sliceY: 1, 
     anims: { "poof": { from: 0, to: 5 } } 
 })
 loadSprite("jump_dust", "Double_Jump_Dust_5.png", { 
@@ -31,36 +33,24 @@ const JUMP_FORCE = 750
 setGravity(2200)
 
 // --- DUST SPAWNER ---
-function addDust(type, position) {
+function addDust(type, position, flipped) {
     add([
-        sprite(type, { anim: "poof" }),
+        sprite(type, { anim: "poof", flipX: flipped }),
         pos(position),
         anchor("bot"),
         scale(2),
-        lifespan(0.2), // Dust disappears quickly
+        lifespan(0.2),
     ])
 }
 
-// --- WORLD & PARKOUR ---
-const floor = add([
+// --- WORLD ---
+add([
     rect(width() * 20, 48),
     pos(0, height() - 48),
     area(),
     body({ isStatic: true }),
     color(150, 150, 150),
 ])
-
-// Add a few test platforms for Parkour
-const platformPositions = [600, 900, 1200, 1500]
-platformPositions.forEach((xPos, index) => {
-    add([
-        rect(150, 20),
-        pos(xPos, height() - 150 - (index * 40)), // Each platform gets slightly higher
-        area(),
-        body({ isStatic: true }),
-        color(100, 100, 100),
-    ])
-})
 
 // --- PLAYER ---
 const player = add([
@@ -69,7 +59,10 @@ const player = add([
     area(),
     body(),
     scale(2),
-    { canDoubleJump: false }
+    { 
+        canDoubleJump: false,
+        lastFlip: false // Store the direction here
+    }
 ])
 
 // --- CORE LOOP ---
@@ -79,21 +72,24 @@ onUpdate(() => {
     const left = isKeyDown("a")
     const right = isKeyDown("d")
 
-    // TWITCH FIX
+    // DIRECTION LOGIC (The Twitch/Flip Fix)
     if (left && !right) {
         player.move(-currentSpeed, 0)
-        player.flipX = true
+        player.lastFlip = true
     } else if (right && !left) {
         player.move(currentSpeed, 0)
-        player.flipX = false
+        player.lastFlip = false
     }
+    
+    // Apply the saved flip state every frame
+    player.flipX = player.lastFlip
 
-    // RUN DUST SPAWN
+    // SPRINT DUST LOGIC
     if (player.isGrounded() && (left || right) && sprinting) {
-        if (frameCount() % 12 === 0) {
-            // Offset dust slightly behind the player
-            const xOff = player.flipX ? 20 : -20
-            addDust("run_dust", player.pos.add(xOff, 20))
+        if (frameCount() % 10 === 0) {
+            // Spawn dust behind the monster
+            const dustPos = player.pos.add(player.flipX ? 20 : -20, 20)
+            addDust("run_dust", dustPos, player.flipX)
         }
     }
 
@@ -125,11 +121,11 @@ onUpdate(() => {
 onKeyPress("space", () => {
     if (player.isGrounded()) {
         player.jump(JUMP_FORCE)
-        addDust("jump_dust", player.pos.add(0, 20))
+        addDust("jump_dust", player.pos.add(0, 20), player.flipX)
     } else if (player.canDoubleJump) {
         player.jump(JUMP_FORCE * 0.8)
         player.canDoubleJump = false
-        addDust("jump_dust", player.pos.add(0, 20))
+        addDust("jump_dust", player.pos.add(0, 20), player.flipX)
     }
 })
 
